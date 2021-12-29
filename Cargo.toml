@@ -1,0 +1,20 @@
+# [[file:ipi.note::fe91b07f][fe91b07f]]
+[package]
+name = "gosh-ipi"
+version = "0.0.1"
+edition = "2021"
+authors = ["Wenping Guo <ybyygu@gmail.com>"]
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.6", features = ["codec"] }
+bytes = "1"
+futures = "0.3"
+#===========
+gosh-core = { version = ">=0.0.1", features=["adhoc"] }
+
+[dev-dependencies]
+
+# workspace independent
+# [workspace]
+# fe91b07f ends here
