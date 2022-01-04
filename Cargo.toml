@@ -12,8 +12,13 @@ bytes = "1"
 futures = "0.3"
 #===========
 gosh-core = { version = ">=0.0.1", features=["adhoc"] }
+gosh-model = { version = ">=0.0.1", features=["adhoc"] }
 
 [dev-dependencies]
+
+[features]
+# for easy development
+adhoc = []
 
 # workspace independent
 # [workspace]

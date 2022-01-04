@@ -8,6 +8,12 @@ use gchemol::{Atom, Lattice, Molecule};
 
 // [[file:../ipi.note::2783ec3a][2783ec3a]]
 mod codec;
+mod ipi;
+
+#[cfg(feature = "adhoc")]
+pub mod docs {
+    pub use super::codec::*;
+}
 // 2783ec3a ends here
 
 // [[file:../ipi.note::04b72e76][04b72e76]]
@@ -75,19 +81,4 @@ pub struct Computed {
     virial: [f64; 9],
     extra: String,
 }
-
-// impl Computed {
-//     fn from_model_properties(mp: &gosh::model::ModelProperties) -> Self {
-//         let energy = dbg!(mp.get_energy().unwrap());
-//         let forces = mp.get_forces().unwrap().clone();
-//         Self {
-//             energy,
-//             forces,
-//             // TODO: we have no support for stress tensor, so set virial as
-//             // zeros
-//             virial: [0.0; 9],
-//             extra: "".into(),
-//         }
-//     }
-// }
 // 04b72e76 ends here
