@@ -366,7 +366,7 @@ impl Decoder for ClientCodec {
                     src.advance(12);
                     Ok(Some(ClientMessage::Status(ClientStatus::Ready)))
                 }
-                "HAVADATA" => {
+                "HAVEDATA" => {
                     src.advance(12);
                     Ok(Some(ClientMessage::Status(ClientStatus::HaveData)))
                 }
@@ -375,7 +375,7 @@ impl Decoder for ClientCodec {
                     Ok(computed) => Ok(Some(ClientMessage::ForceReady(computed))),
                 },
                 _ => {
-                    error!("invalid header: {}", header_str);
+                    error!("invalid header: {:?}", header_str);
                     todo!();
                 }
             },
