@@ -128,6 +128,7 @@ pub async fn ipi_server(sock: &Path, mol: &Molecule) -> Result<()> {
                     ClientStatus::HaveData => {
                         server_write.send(ServerMessage::GetForce).await?;
                     }
+                    _ => unimplemented!(),
                 },
                 // the computation is done, and we got the results
                 ClientMessage::ForceReady(computed) => {

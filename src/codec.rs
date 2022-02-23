@@ -97,6 +97,7 @@ fn encode_client_status(dest: &mut BytesMut, status: &ClientStatus) -> EncodedRe
         ClientStatus::NeedInit => "NEEDINIT",
         ClientStatus::Ready => "READY",
         ClientStatus::HaveData => "HAVEDATA",
+        _ => unimplemented!(),
     };
     encode_header(dest, s)?;
 

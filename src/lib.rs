@@ -11,33 +11,22 @@ mod codec;
 mod ipi;
 // 2783ec3a ends here
 
-// [[file:../ipi.note::242ad86a][242ad86a]]
-#[cfg(feature = "adhoc")]
-/// Docs for local mods
-pub mod docs {
-    macro_rules! export_doc {
-        ($l:ident) => {
-            pub mod $l {
-                pub use crate::$l::*;
-            }
-        };
-    }
-
-    export_doc!(codec);
-    export_doc!(ipi);
-}
-// 242ad86a ends here
-
 // [[file:../ipi.note::04b72e76][04b72e76]]
-/// The Message type sent from client side (the computation engine)
+/// The status of the client
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClientStatus {
-    /// The client code needs initializing data.
+    /// The client is ready to receive forcefield parameters.
     NeedInit,
-    /// The client code is ready to calculate the forces.
+    /// The client is ready to receive position and cell data.
     Ready,
-    /// The client has finished computing the potential and forces.
+    /// The client is ready to send force data
     HaveData,
+    /// The client is running
+    Up,
+    /// The client has disconnected
+    Disconnected,
+    /// The connection has timed out
+    TimeOut,
 }
 
 /// The message sent from server side (application)
@@ -94,3 +83,20 @@ pub struct Computed {
     extra: String,
 }
 // 04b72e76 ends here
+
+// [[file:../ipi.note::242ad86a][242ad86a]]
+#[cfg(feature = "adhoc")]
+/// Docs for local mods
+pub mod docs {
+    macro_rules! export_doc {
+        ($l:ident) => {
+            pub mod $l {
+                pub use crate::$l::*;
+            }
+        };
+    }
+
+    export_doc!(codec);
+    export_doc!(ipi);
+}
+// 242ad86a ends here
