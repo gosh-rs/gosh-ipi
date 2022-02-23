@@ -3,7 +3,6 @@ use super::*;
 
 use bytes::{Buf, BufMut};
 use bytes::{Bytes, BytesMut};
-use tokio_util::codec::{Decoder, Encoder};
 // d2086cfc ends here
 
 // [[file:../ipi.note::1a9eabbb][1a9eabbb]]
@@ -14,7 +13,7 @@ const HEADER_SIZE: usize = 12;
 // 1a9eabbb ends here
 
 // [[file:../ipi.note::1156a769][1156a769]]
-// A wrapper for Ok(None), so we can early return using question mark (?)
+/// A wrapper for Ok(None), so we can early return using question mark (?)
 #[derive(Debug)]
 enum DecodeError {
     IoError(std::io::Error),
@@ -347,6 +346,9 @@ fn decode_client_computed(src: &mut BytesMut) -> Result<Computed, DecodeError> {
 // 848513f5 ends here
 
 // [[file:../ipi.note::d32e6879][d32e6879]]
+use tokio_util::codec::{Decoder, Encoder};
+
+/// Client side encoding/decoding
 pub struct ClientCodec;
 
 impl Decoder for ClientCodec {
@@ -395,7 +397,9 @@ impl Encoder<ClientMessage> for ClientCodec {
 // d32e6879 ends here
 
 // [[file:../ipi.note::c2814be6][c2814be6]]
+/// Server side encoding/decoding
 pub struct ServerCodec;
+
 impl Decoder for ServerCodec {
     type Item = ServerMessage;
     type Error = std::io::Error;

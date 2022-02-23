@@ -9,12 +9,24 @@ use gchemol::{Atom, Lattice, Molecule};
 // [[file:../ipi.note::2783ec3a][2783ec3a]]
 mod codec;
 mod ipi;
-
-#[cfg(feature = "adhoc")]
-pub mod docs {
-    pub use super::codec::*;
-}
 // 2783ec3a ends here
+
+// [[file:../ipi.note::242ad86a][242ad86a]]
+#[cfg(feature = "adhoc")]
+/// Docs for local mods
+pub mod docs {
+    macro_rules! export_doc {
+        ($l:ident) => {
+            pub mod $l {
+                pub use crate::$l::*;
+            }
+        };
+    }
+
+    export_doc!(codec);
+    export_doc!(ipi);
+}
+// 242ad86a ends here
 
 // [[file:../ipi.note::04b72e76][04b72e76]]
 /// The Message type sent from client side (the computation engine)

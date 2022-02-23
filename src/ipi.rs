@@ -1,5 +1,7 @@
 // [[file:../ipi.note::ac2d8efb][ac2d8efb]]
 use super::*;
+use std::path::{Path, PathBuf};
+
 use gosh_model::*;
 // ac2d8efb ends here
 
@@ -20,6 +22,13 @@ impl Computed {
 }
 // d4f83f32 ends here
 
+// [[file:../ipi.note::624a82ac][624a82ac]]
+/// Guess the unix socket file name from host name for the i-PI server.
+fn guess_unix_socket_file(host: &str) -> String {
+    format!("/tmp/ipi_{host}")
+}
+// 624a82ac ends here
+
 // [[file:../ipi.note::ac221478][ac221478]]
 pub async fn bbm_as_ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: &std::path::Path) -> Result<()> {
     use futures::SinkExt;
@@ -27,33 +36,15 @@ pub async fn bbm_as_ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: 
     use tokio::net::UnixStream;
     use tokio_util::codec::{FramedRead, FramedWrite};
 
-    // FIXME: temp solution: write flame yaml input
-    let [va, vb, vc] = mol_ini.get_lattice().as_ref().unwrap().vectors();
-    println!("---");
-    println!("conf:");
-    println!("  bc: slab");
-    println!("  nat: {}", mol_ini.natoms());
-    println!("  units_length: angstrom");
-    println!("  cell:");
-    println!("  - [{:10.4}, {:10.4}, {:10.4}]", va[0], va[1], va[2]);
-    println!("  - [{:10.4}, {:10.4}, {:10.4}]", vb[0], vb[1], vb[2]);
-    println!("  - [{:10.4}, {:10.4}, {:10.4}]", vc[0], vc[1], vc[2]);
-    println!("  coord:");
-    for (i, a) in mol_ini.atoms() {
-        let [x, y, z] = a.position();
-        let fff: String = a.freezing().iter().map(|&x| if x { "T" } else { "F" }).collect();
-        println!("  - [{:10.4}, {:10.4}, {:10.4}, {}, {}]", x, y, z, a.symbol(), fff);
-    }
-
     // let mut stream = UnixStream::connect(sock).context("connect to unix socket").await?;
     let mut stream = tokio::net::TcpStream::connect("127.0.0.1:10244")
         .await
         .context("connect to host")?;
     let (read, write) = stream.split();
 
-    // the message we received from the server (the driver)
+    // for the message we received from the server (the driver)
     let mut server_read = FramedRead::new(read, codec::ServerCodec);
-    // the message we sent to the server (the driver)
+    // for the message we sent to the server (the driver)
     let mut client_write = FramedWrite::new(write, codec::ClientCodec);
 
     let mut mol_to_compute: Option<Molecule> = None;
@@ -103,7 +94,7 @@ pub async fn bbm_as_ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: 
 // ac221478 ends here
 
 // [[file:../ipi.note::77afd524][77afd524]]
-async fn ipi_driver(sock: &std::path::Path, mol: &Molecule) -> Result<()> {
+pub async fn ipi_server(sock: &Path, mol: &Molecule) -> Result<()> {
     use futures::SinkExt;
     use futures::StreamExt;
     use tokio::net::UnixListener;
