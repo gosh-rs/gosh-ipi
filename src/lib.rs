@@ -29,9 +29,9 @@ pub enum ClientStatus {
     TimeOut,
 }
 
-/// The message sent from server side (application)
+/// The message sent from the driver code (i-PI ...)
 #[derive(Debug, Clone)]
-pub enum ServerMessage {
+pub enum DriverMessage {
     /// Request the status of the client code
     Status,
 
@@ -51,7 +51,7 @@ pub enum ServerMessage {
     Exit,
 }
 
-/// The message sent by client code (VASP ...)
+/// The message sent from client code (CP2K, SIESTA, VASP ...)
 #[derive(Debug, Clone)]
 pub enum ClientMessage {
     ForceReady(Computed),

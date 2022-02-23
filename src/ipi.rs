@@ -53,7 +53,7 @@ pub async fn bbm_as_ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: 
     while let Some(stream) = server_read.next().await {
         let mut stream = stream?;
         match stream {
-            ServerMessage::Status => {
+            DriverMessage::Status => {
                 debug!("server ask for client status");
                 if mol_to_compute.is_none() {
                     client_write.send(ClientMessage::Status(ClientStatus::Ready)).await?;
@@ -61,7 +61,7 @@ pub async fn bbm_as_ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: 
                     client_write.send(ClientMessage::Status(ClientStatus::HaveData)).await?;
                 }
             }
-            ServerMessage::GetForce => {
+            DriverMessage::GetForce => {
                 debug!("server ask for forces");
                 if let Some(mol) = mol_to_compute.as_mut() {
                     assert_eq!(mol.natoms(), mol_ini.natoms());
@@ -75,14 +75,14 @@ pub async fn bbm_as_ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: 
                     bail!("not mol to compute!");
                 }
             }
-            ServerMessage::PosData(mol) => {
+            DriverMessage::PosData(mol) => {
                 debug!("server sent mol {:?}", mol);
                 mol_to_compute = Some(mol);
             }
-            ServerMessage::Init(data) => {
+            DriverMessage::Init(data) => {
                 debug!("server sent init data: {:?}", data);
             }
-            ServerMessage::Exit => {
+            DriverMessage::Exit => {
                 debug!("server ask exit");
                 break;
             }
@@ -111,7 +111,7 @@ pub async fn ipi_server(sock: &Path, mol: &Molecule) -> Result<()> {
 
     loop {
         // ask for client status
-        server_write.send(ServerMessage::Status).await?;
+        server_write.send(DriverMessage::Status).await?;
         // read the message
         if let Some(stream) = client_read.next().await {
             let stream = stream?;
@@ -119,14 +119,14 @@ pub async fn ipi_server(sock: &Path, mol: &Molecule) -> Result<()> {
                 // we are ready to send structure to compute
                 ClientMessage::Status(status) => match status {
                     ClientStatus::Ready => {
-                        server_write.send(ServerMessage::PosData(mol.clone())).await?;
+                        server_write.send(DriverMessage::PosData(mol.clone())).await?;
                     }
                     ClientStatus::NeedInit => {
                         let init = InitData::new(0, "");
-                        server_write.send(ServerMessage::Init(init)).await?;
+                        server_write.send(DriverMessage::Init(init)).await?;
                     }
                     ClientStatus::HaveData => {
-                        server_write.send(ServerMessage::GetForce).await?;
+                        server_write.send(DriverMessage::GetForce).await?;
                     }
                     _ => unimplemented!(),
                 },

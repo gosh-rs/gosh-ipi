@@ -402,7 +402,7 @@ impl Encoder<ClientMessage> for ClientCodec {
 pub struct ServerCodec;
 
 impl Decoder for ServerCodec {
-    type Item = ServerMessage;
+    type Item = DriverMessage;
     type Error = std::io::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -410,23 +410,23 @@ impl Decoder for ServerCodec {
             Ok(header_str) => match header_str.as_str() {
                 "STATUS" => {
                     src.advance(12);
-                    Ok(Some(ServerMessage::Status))
+                    Ok(Some(DriverMessage::Status))
                 }
                 "GETFORCE" => {
                     src.advance(12);
-                    Ok(Some(ServerMessage::GetForce))
+                    Ok(Some(DriverMessage::GetForce))
                 }
                 "EXIT" | "STOP" => {
                     src.advance(12);
-                    Ok(Some(ServerMessage::Exit))
+                    Ok(Some(DriverMessage::Exit))
                 }
                 "INIT" => match decode_init(src) {
                     Err(e) => fix_decode_err(e),
-                    Ok(init_data) => Ok(Some(ServerMessage::Init(init_data))),
+                    Ok(init_data) => Ok(Some(DriverMessage::Init(init_data))),
                 },
                 "POSDATA" => match decode_posdata(src) {
                     Err(e) => fix_decode_err(e),
-                    Ok(mol) => Ok(Some(ServerMessage::PosData(mol))),
+                    Ok(mol) => Ok(Some(DriverMessage::PosData(mol))),
                 },
                 _ => {
                     error!("invalid header: {}", header_str);
@@ -438,16 +438,17 @@ impl Decoder for ServerCodec {
     }
 }
 
-impl Encoder<ServerMessage> for ServerCodec {
+impl Encoder<DriverMessage> for ServerCodec {
     type Error = std::io::Error;
 
-    fn encode(&mut self, msg: ServerMessage, dest: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, msg: DriverMessage, dest: &mut BytesMut) -> Result<(), Self::Error> {
         match msg {
-            ServerMessage::Status => encode_header(dest, "STATUS"),
-            ServerMessage::GetForce => encode_header(dest, "GETFORCE"),
-            ServerMessage::Exit => encode_header(dest, "EXIT"),
-            ServerMessage::Init(data) => encode_init(dest, data),
-            ServerMessage::PosData(mol) => encode_posdata(dest, &mol),
+            DriverMessage::Status => encode_header(dest, "STATUS"),
+            DriverMessage::GetForce => encode_header(dest, "GETFORCE"),
+            DriverMessage::Exit => encode_header(dest, "EXIT"),
+            DriverMessage::Init(data) => encode_init(dest, data),
+            DriverMessage::PosData(mol) => encode_posdata(dest, &mol),
+
         }
     }
 }
