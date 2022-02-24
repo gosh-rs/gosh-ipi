@@ -101,3 +101,7 @@ pub mod docs {
     export_doc!(ipi);
 }
 // 242ad86a ends here
+
+// [[file:../ipi.note::45e64f3f][45e64f3f]]
+pub mod cli;
+// 45e64f3f ends here
