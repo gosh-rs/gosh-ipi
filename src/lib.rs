@@ -9,6 +9,7 @@ use gchemol::{Atom, Lattice, Molecule};
 // [[file:../ipi.note::2783ec3a][2783ec3a]]
 mod codec;
 mod ipi;
+mod socket;
 // 2783ec3a ends here
 
 // [[file:../ipi.note::04b72e76][04b72e76]]

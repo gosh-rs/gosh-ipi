@@ -1,8 +1,16 @@
 // [[file:../ipi.note::ac2d8efb][ac2d8efb]]
 use super::*;
-use std::path::{Path, PathBuf};
+use socket::Socket;
 
 use gosh_model::*;
+use std::path::{Path, PathBuf};
+
+use futures::SinkExt;
+use futures::StreamExt;
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::net::{TcpStream, UnixStream};
+use tokio_util::codec::Decoder;
+use tokio_util::codec::{FramedRead, FramedWrite};
 // ac2d8efb ends here
 
 // [[file:../ipi.note::d4f83f32][d4f83f32]]
@@ -22,26 +30,12 @@ impl Computed {
 }
 // d4f83f32 ends here
 
-// [[file:../ipi.note::624a82ac][624a82ac]]
-/// Guess the unix socket file name from host name for the i-PI server.
-fn guess_unix_socket_file(host: &str) -> String {
-    format!("/tmp/ipi_{host}")
-}
-// 624a82ac ends here
-
-// [[file:../ipi.note::ac221478][ac221478]]
-pub async fn bbm_as_ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: &std::path::Path) -> Result<()> {
-    use futures::SinkExt;
-    use futures::StreamExt;
-    use tokio::net::UnixStream;
-    use tokio_util::codec::{FramedRead, FramedWrite};
-
-    // let mut stream = UnixStream::connect(sock).context("connect to unix socket").await?;
-    let mut stream = tokio::net::TcpStream::connect("127.0.0.1:10244")
-        .await
-        .context("connect to host")?;
-    let (read, write) = stream.split();
-
+// [[file:../ipi.note::7804b9ff][7804b9ff]]
+async fn ipi_client_loop<R, W>(mut bbm: BlackBoxModel, mol_ini: Molecule, read: R, write: W) -> Result<()>
+where
+    R: AsyncRead + std::marker::Unpin,
+    W: AsyncWrite + std::marker::Unpin,
+{
     // for the message we received from the server (the driver)
     let mut server_read = FramedRead::new(read, codec::ServerCodec);
     // for the message we sent to the server (the driver)
@@ -91,19 +85,14 @@ pub async fn bbm_as_ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: 
 
     Ok(())
 }
-// ac221478 ends here
+// 7804b9ff ends here
 
-// [[file:../ipi.note::77afd524][77afd524]]
-pub async fn ipi_server(sock: &Path, mol: &Molecule) -> Result<()> {
-    use futures::SinkExt;
-    use futures::StreamExt;
-    use tokio::net::UnixListener;
-    use tokio_util::codec::{FramedRead, FramedWrite};
-
-    let mut listener = UnixListener::bind(sock).context("bind unix socket")?;
-    let (mut stream, _) = listener.accept().await.context("accept new unix socket client")?;
-    let (read, write) = stream.split();
-
+// [[file:../ipi.note::b85806b7][b85806b7]]
+async fn ipi_server_loop<R, W>(mol: &Molecule, read: R, write: W) -> Result<()>
+where
+    R: AsyncRead + std::marker::Unpin,
+    W: AsyncWrite + std::marker::Unpin,
+{
     // the message we received from the client code (VASP, SIESTA, ...)
     let mut client_read = FramedRead::new(read, codec::ClientCodec);
     // the message we sent to the client
@@ -138,6 +127,41 @@ pub async fn ipi_server(sock: &Path, mol: &Molecule) -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+// b85806b7 ends here
+
+// [[file:../ipi.note::ac221478][ac221478]]
+pub async fn ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, sock: Socket) -> Result<()> {
+    match sock {
+        Socket::Tcp(mut s) => {
+            let (read, write) = s.split();
+            ipi_client_loop(bbm, mol_ini, read, write).await?;
+        }
+        Socket::Unix(mut s) => {
+            let (read, write) = s.split();
+            ipi_client_loop(bbm, mol_ini, read, write).await?;
+        }
+    };
+
+    Ok(())
+}
+// ac221478 ends here
+
+// [[file:../ipi.note::77afd524][77afd524]]
+pub async fn ipi_driver(sock: Socket, mol: &Molecule) -> Result<()> {
+    match sock {
+        Socket::Tcp(mut s) => {
+            let (read, write) = s.split();
+            ipi_server_loop(mol, read, write).await?;
+        }
+        Socket::Unix(mut s) => {
+            let (read, write) = s.split();
+            ipi_server_loop(mol, read, write).await?;
+        }
+    };
+
     Ok(())
 }
 // 77afd524 ends here
