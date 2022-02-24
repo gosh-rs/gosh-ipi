@@ -10,6 +10,8 @@ use gchemol::{Atom, Lattice, Molecule};
 mod codec;
 mod ipi;
 mod socket;
+
+// mod proxy;
 // 2783ec3a ends here
 
 // [[file:../ipi.note::04b72e76][04b72e76]]
@@ -98,6 +100,7 @@ pub mod docs {
     }
 
     export_doc!(codec);
+    export_doc!(socket);
     export_doc!(ipi);
 }
 // 242ad86a ends here
