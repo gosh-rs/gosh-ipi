@@ -11,8 +11,13 @@ mod codec;
 mod ipi;
 mod socket;
 
-// mod proxy;
+mod proxy;
 // 2783ec3a ends here
+
+// [[file:../ipi.note::f9b302af][f9b302af]]
+type RxMolecule = tokio::sync::mpsc::Receiver<Molecule>;
+type TxMolecule = tokio::sync::mpsc::Sender<Molecule>;
+// f9b302af ends here
 
 // [[file:../ipi.note::04b72e76][04b72e76]]
 /// The status of the client

@@ -8,6 +8,7 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 
 // [[file:../ipi.note::624a82ac][624a82ac]]
 /// A socket for i-PI client or driver
+#[derive(Debug, Clone)]
 pub struct Socket {}
 
 /// Guess the unix socket file name from host name for the i-PI server.

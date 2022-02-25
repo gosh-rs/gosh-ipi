@@ -104,6 +104,7 @@ where
     let mut client_read = FramedRead::new(read, codec::ClientCodec);
     // the message we sent to the client
     let mut server_write = FramedWrite::new(write, codec::ServerCodec);
+
     loop {
         // ask for client status
         server_write.send(DriverMessage::Status).await?;
@@ -156,16 +157,17 @@ pub async fn ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, stream: IpiSt
 // ac221478 ends here
 
 // [[file:../ipi.note::77afd524][77afd524]]
-pub async fn ipi_driver(listener: IpiListener, mol: &Molecule) -> Result<()> {
+pub async fn ipi_server(listener: IpiListener, mut rx_mol: RxMolecule) -> Result<()> {
     loop {
+        let mol = rx_mol.recv().await.ok_or(format_err!("mol channel dropped"))?;
         match listener.accept().await? {
             IpiStream::Tcp(mut s) => {
                 let (read, write) = s.split();
-                process_client_stream(mol, read, write).await?;
+                process_client_stream(&mol, read, write).await?;
             }
             IpiStream::Unix(mut s) => {
                 let (read, write) = s.split();
-                process_client_stream(mol, read, write).await?;
+                process_client_stream(&mol, read, write).await?;
             }
         };
     }

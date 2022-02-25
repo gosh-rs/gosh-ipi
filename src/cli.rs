@@ -39,6 +39,7 @@ pub async fn enter_main() -> Result<()> {
     let mut bbm = BlackBoxModel::from_dir(&args.bbm)?;
     let mol = Molecule::from_file(&args.mol)?;
 
+    // default port as in ipi
     let sock = Socket::connect(&args.sock, 12345, true).await?;
     ipi::ipi_client(bbm, mol, sock).await?;
     dbg!();
