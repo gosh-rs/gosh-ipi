@@ -12,6 +12,7 @@ mod ipi;
 mod socket;
 
 mod proxy;
+mod client;
 mod rest;
 // 2783ec3a ends here
 

@@ -28,6 +28,17 @@ macro_rules! build_app_with_routes {
 }
 // 59c3364a ends here
 
+// [[file:../ipi.note::285a8db0][285a8db0]]
+impl client::Client {
+    pub async fn compute_molecule(&self, mol: &Molecule) -> Result<ModelProperties> {
+        info!("computing molecule {}", mol.title());
+        let x = self.post("mol", &mol).await?;
+        let mol = serde_json::from_str(&x).with_context(|| format!("invalid json str: {x:?}"))?;
+        Ok(mol)
+    }
+}
+// 285a8db0 ends here
+
 // [[file:../ipi.note::f4a1566d][f4a1566d]]
 pub async fn enter_main(lock_file: &Path) -> Result<()> {
     let app = build_app_with_routes!();

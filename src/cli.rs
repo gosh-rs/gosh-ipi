@@ -31,6 +31,9 @@ struct IpiCli {
 /// Compute molecule stream using any package (CP2K, SIESTA, etc) in i-PI
 /// protocol
 struct ProxyClient {
+    /// The file containing molecule for computation
+    mol_file: PathBuf,
+
     /// Path to lock file containing server address for connection
     #[clap(short = 'w', default_value = "gosh-ipi.lock")]
     lock_file: PathBuf,
@@ -38,7 +41,13 @@ struct ProxyClient {
 
 impl ProxyClient {
     async fn enter_main(&self) -> Result<()> {
-        todo!()
+        let addr = gut::fs::read_file(&self.lock_file)?;
+        let client = client::Client::connect(dbg!(addr.trim()));
+        let mol = Molecule::from_file(&self.mol_file)?;
+        let mp = client.compute_molecule(&mol).await?;
+        dbg!(mp);
+
+        Ok(())
     }
 }
 // 42437aac ends here

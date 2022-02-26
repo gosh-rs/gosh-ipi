@@ -17,6 +17,9 @@ gosh-model = { version = ">=0.0.14", features=["adhoc"] }
 clap = {version="3", features = ["derive"]}
 fs2 = "0.4.3"
 axum = "0.4.6"
+serde_json = "1"
+serde = {version="1.0", features = ["derive"]}
+reqwest = { version="0.11", default-features = false, features=["json", "rustls-tls"]}
 
 [dev-dependencies]
 
