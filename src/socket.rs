@@ -17,6 +17,13 @@ fn guess_unix_socket_file(host: &str) -> String {
 }
 // 624a82ac ends here
 
+// [[file:../ipi.note::2d2abd6a][2d2abd6a]]
+/// Return the address available for binding with the OS assigns port.
+pub fn get_free_tcp_address() -> Option<std::net::SocketAddr> {
+    std::net::TcpListener::bind(("localhost", 0)).ok()?.local_addr().ok()
+}
+// 2d2abd6a ends here
+
 // [[file:../ipi.note::9b4b9ee0][9b4b9ee0]]
 #[derive(Debug)]
 /// A stream between i-PI client and driver (server)

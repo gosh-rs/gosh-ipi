@@ -2,7 +2,7 @@
 use gosh_core::gut::prelude::*;
 
 fn main() -> Result<()> {
-    gosh_ipi::cli::enter_main()?;
+    gosh_ipi::cli::IpiProxyCli::enter_main()?;
 
     Ok(())
 }

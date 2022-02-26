@@ -12,12 +12,62 @@ mod ipi;
 mod socket;
 
 mod proxy;
+mod rest;
 // 2783ec3a ends here
 
 // [[file:../ipi.note::f9b302af][f9b302af]]
 type RxMolecule = tokio::sync::mpsc::Receiver<Molecule>;
 type TxMolecule = tokio::sync::mpsc::Sender<Molecule>;
 // f9b302af ends here
+
+// [[file:../ipi.note::929936e0][929936e0]]
+use std::path::{Path, PathBuf};
+
+#[derive(Debug)]
+pub struct LockFile {
+    file: std::fs::File,
+    path: PathBuf,
+}
+
+impl LockFile {
+    fn create(path: &Path) -> Result<LockFile> {
+        use fs2::*;
+
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(&path)
+            .context("Could not create ID file")?;
+
+        // https://docs.rs/fs2/0.4.3/fs2/trait.FileExt.html
+        file.try_lock_exclusive()
+            .context("Could not lock ID file; Is the daemon already running?")?;
+
+        Ok(LockFile {
+            file,
+            path: path.to_owned(),
+        })
+    }
+
+    fn write_msg(&mut self, msg: impl std::fmt::Display) -> Result<()> {
+        writeln!(&mut self.file, "{msg}").context("Could not write ID file")?;
+        self.file.flush().context("Could not flush ID file")
+    }
+
+    /// Create a lockfile in `path` containing `msg`
+    pub fn new(path: &Path, msg: impl std::fmt::Display) -> Result<Self> {
+        let mut lockfile = Self::create(path)?;
+        lockfile.write_msg(msg)?;
+        Ok(lockfile)
+    }
+}
+
+impl Drop for LockFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+// 929936e0 ends here
 
 // [[file:../ipi.note::04b72e76][04b72e76]]
 /// The status of the client

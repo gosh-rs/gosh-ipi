@@ -26,24 +26,72 @@ struct IpiCli {
 }
 // 724c4c4c ends here
 
-// [[file:../ipi.note::44b57b90][44b57b90]]
-#[tokio::main]
-pub async fn enter_main() -> Result<()> {
-    use gchemol::prelude::*;
-    use gchemol::Molecule;
-    use gosh_model::BlackBoxModel;
-
-    let args = IpiCli::from_args();
-    args.verbose.setup_logger();
-
-    let mut bbm = BlackBoxModel::from_dir(&args.bbm)?;
-    let mol = Molecule::from_file(&args.mol)?;
-
-    // default port as in ipi
-    let sock = Socket::connect(&args.sock, 12345, true).await?;
-    ipi::ipi_client(bbm, mol, sock).await?;
-    dbg!();
-
-    Ok(())
+// [[file:../ipi.note::42437aac][42437aac]]
+#[derive(Args, Debug)]
+/// Compute molecule stream using any package (CP2K, SIESTA, etc) in i-PI
+/// protocol
+struct ProxyClient {
+    /// Path to lock file containing server address for connection
+    #[clap(short = 'w', default_value = "gosh-ipi.lock")]
+    lock_file: PathBuf,
 }
-// 44b57b90 ends here
+
+impl ProxyClient {
+    async fn enter_main(&self) -> Result<()> {
+        todo!()
+    }
+}
+// 42437aac ends here
+
+// [[file:../ipi.note::cf06c8c7][cf06c8c7]]
+#[derive(Args, Debug)]
+struct ProxyServer {
+    /// Path to lock file for writing server address.
+    #[clap(short = 'w', default_value = "gosh-ipi.lock")]
+    lock_file: PathBuf,
+}
+
+impl ProxyServer {
+    async fn enter_main(&self) -> Result<()> {
+        rest::enter_main(&self.lock_file).await?;
+        Ok(())
+    }
+}
+// cf06c8c7 ends here
+
+// [[file:../ipi.note::34481538][34481538]]
+#[derive(Subcommand, Debug)]
+enum ProxyCmd {
+    /// Client side action for ipi-proxy
+    Client(ProxyClient),
+    /// Server side action for ipi-proxy
+    Server(ProxyServer),
+}
+
+#[derive(Debug, Parser)]
+#[clap(author, version, about)]
+/// ipi-proxy for computation of a molecule
+pub struct IpiProxyCli {
+    #[clap(flatten)]
+    verbose: Verbosity,
+
+    /// The server mode to start.
+    #[clap(subcommand)]
+    cmd: ProxyCmd,
+}
+
+impl IpiProxyCli {
+    #[tokio::main]
+    pub async fn enter_main() -> Result<()> {
+        let args = Self::from_args();
+        args.verbose.setup_logger();
+
+        match args.cmd {
+            ProxyCmd::Client(client) => client.enter_main().await?,
+            ProxyCmd::Server(server) => server.enter_main().await?,
+        }
+
+        Ok(())
+    }
+}
+// 34481538 ends here
