@@ -95,7 +95,7 @@ where
 // 7804b9ff ends here
 
 // [[file:../ipi.note::b85806b7][b85806b7]]
-async fn process_client_stream<R, W>(mol: &Molecule, read: R, write: W) -> Result<()>
+async fn process_client_stream<R, W>(mol: &Molecule, read: R, write: W) -> Result<Computed>
 where
     R: AsyncRead + std::marker::Unpin,
     W: AsyncWrite + std::marker::Unpin,
@@ -128,14 +128,11 @@ where
                 },
                 // the computation is done, and we got the results
                 ClientMessage::ForceReady(computed) => {
-                    dbg!(computed);
-                    break;
+                    return Ok(computed);
                 }
             }
         }
     }
-
-    Ok(())
 }
 // b85806b7 ends here
 
@@ -157,19 +154,25 @@ pub async fn ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, stream: IpiSt
 // ac221478 ends here
 
 // [[file:../ipi.note::77afd524][77afd524]]
-pub async fn ipi_server(listener: IpiListener, mut rx_mol: RxMolecule) -> Result<()> {
+pub async fn ipi_server(listener: IpiListener, mut rx_inp: RxInput) -> Result<()> {
     loop {
-        let mol = rx_mol.recv().await.ok_or(format_err!("mol channel dropped"))?;
-        match listener.accept().await? {
+        // FIXME: write output using tx_out
+        let (mol, tx_out) = rx_inp.recv().await.ok_or(format_err!("mol channel dropped"))?;
+        let computed = match listener.accept().await? {
             IpiStream::Tcp(mut s) => {
                 let (read, write) = s.split();
-                process_client_stream(&mol, read, write).await?;
+                process_client_stream(&mol, read, write).await?
             }
             IpiStream::Unix(mut s) => {
                 let (read, write) = s.split();
-                process_client_stream(&mol, read, write).await?;
+                process_client_stream(&mol, read, write).await?
             }
         };
+
+        match tx_out.send(computed) {
+            Ok(_) => {}
+            Err(_) => {}
+        }
     }
 }
 // 77afd524 ends here

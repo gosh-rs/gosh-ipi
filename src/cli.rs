@@ -42,7 +42,7 @@ struct ProxyClient {
 impl ProxyClient {
     async fn enter_main(&self) -> Result<()> {
         let addr = gut::fs::read_file(&self.lock_file)?;
-        let client = client::Client::connect(dbg!(addr.trim()));
+        let client = rest::Client::connect(dbg!(addr.trim()));
         let mol = Molecule::from_file(&self.mol_file)?;
         let mp = client.compute_molecule(&mol).await?;
         dbg!(mp);
@@ -62,7 +62,7 @@ struct ProxyServer {
 
 impl ProxyServer {
     async fn enter_main(&self) -> Result<()> {
-        rest::enter_main(&self.lock_file).await?;
+        rest::Server::enter_main(&self.lock_file).await?;
         Ok(())
     }
 }

@@ -12,13 +12,19 @@ mod ipi;
 mod socket;
 
 mod proxy;
-mod client;
 mod rest;
 // 2783ec3a ends here
 
 // [[file:../ipi.note::f9b302af][f9b302af]]
-type RxMolecule = tokio::sync::mpsc::Receiver<Molecule>;
-type TxMolecule = tokio::sync::mpsc::Sender<Molecule>;
+// input type
+type RxComputed = tokio::sync::oneshot::Receiver<Computed>;
+type TxComputed = tokio::sync::oneshot::Sender<Computed>;
+type RxInput = tokio::sync::mpsc::Receiver<(Molecule, TxComputed)>;
+type TxInput = tokio::sync::mpsc::Sender<Molecule>;
+
+// output type
+type RxOutput = tokio::sync::mpsc::Receiver<String>;
+type TxOutput = tokio::sync::mpsc::Sender<String>;
 // f9b302af ends here
 
 // [[file:../ipi.note::929936e0][929936e0]]
