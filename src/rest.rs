@@ -1,6 +1,9 @@
 // [[file:../ipi.note::3d2c01c2][3d2c01c2]]
 use super::*;
 
+use socket::IpiListener;
+use task::{Task, TaskReceiver, TaskSender};
+
 use gosh_model::ModelProperties;
 // 3d2c01c2 ends here
 
@@ -13,6 +16,7 @@ mod server;
 pub use client::Client;
 
 impl Client {
+    /// Request remote server compute `mol` using external code in i-PI protocol
     pub async fn compute_molecule(&self, mol: &Molecule) -> Result<ModelProperties> {
         info!("computing molecule {}", mol.title());
         let x = self.post("mol", &mol).await?;
@@ -23,15 +27,24 @@ impl Client {
 // 285a8db0 ends here
 
 // [[file:../ipi.note::389c909a][389c909a]]
-pub use server::Server;
+use socket::Socket;
+
+/// Server side for proxying i-PI computation requests to external code
+pub struct Server {
+    ipi_server: IpiListener,
+    task: Task,
+}
 
 impl Server {
-    // high level details for computation of molecule
-    //
-    // this function will be called by sub mod server
-    fn compute_mol_using_ipi(mol: Molecule) -> ModelProperties {
-        // FIXME: using i-PI
-        ModelProperties::default()
+    pub async fn new() -> Result<Self> {
+        // FIXME: using clap arguments
+        let ipi_server = Socket::bind("localhost", 12345, false).await?;
+
+        let s = Self {
+            task: Task::new(),
+            ipi_server,
+        };
+        Ok(s)
     }
 }
 // 389c909a ends here

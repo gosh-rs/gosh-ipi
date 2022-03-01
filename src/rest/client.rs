@@ -4,7 +4,7 @@ use reqwest;
 // 8bb618e6 ends here
 
 // [[file:../../ipi.note::d2c8de54][d2c8de54]]
-/// Client of remote execution
+/// Client for remote execution
 pub struct Client {
     client: reqwest::Client,
     service_uri: String,

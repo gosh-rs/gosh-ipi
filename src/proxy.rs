@@ -7,22 +7,29 @@ use socket::*;
 
 // client:1 ends here
 
-// [[file:../ipi.note::*server][server:1]]
-
-// server:1 ends here
+// [[file:../ipi.note::c57d968b][c57d968b]]
+#[derive(Debug)]
+pub struct IpiProxy {
+    ipi_server: IpiListener,
+    task_server: TaskReceiver,
+}
+// c57d968b ends here
 
 // [[file:../ipi.note::5537d196][5537d196]]
-#[derive(Debug)]
-struct IpiProxy {
-    server: IpiListener,
-    rx_inp: RxInput,
-    rx_out: RxOutput,
-}
-
 impl IpiProxy {
-    async fn start(self) -> Result<()> {
-        ipi::ipi_server(self.server, self.rx_inp).await?;
+    pub async fn new() -> Result<Self> {
+        let (task_server, task_client) = new_interactive_task();
+        let ipi_server = Socket::bind("localhost", 12345, false).await?;
 
+        let s = Self {
+            task_server,
+            ipi_server,
+        };
+        Ok(s)
+    }
+
+    async fn start(&mut self) -> Result<()> {
+        self.task_server.compute_molecule_with(&mut self.ipi_server).await?;
         Ok(())
     }
 }

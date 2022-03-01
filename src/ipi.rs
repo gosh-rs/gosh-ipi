@@ -154,25 +154,31 @@ pub async fn ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, stream: IpiSt
 // ac221478 ends here
 
 // [[file:../ipi.note::77afd524][77afd524]]
-pub async fn ipi_server(listener: IpiListener, mut rx_inp: RxInput) -> Result<()> {
-    loop {
-        // FIXME: write output using tx_out
-        let (mol, tx_out) = rx_inp.recv().await.ok_or(format_err!("mol channel dropped"))?;
-        let computed = match listener.accept().await? {
-            IpiStream::Tcp(mut s) => {
-                let (read, write) = s.split();
-                process_client_stream(&mol, read, write).await?
-            }
-            IpiStream::Unix(mut s) => {
-                let (read, write) = s.split();
-                process_client_stream(&mol, read, write).await?
-            }
-        };
+use task::RxInput;
 
-        match tx_out.send(computed) {
-            Ok(_) => {}
-            Err(_) => {}
+impl IpiListener {
+    /// Serve molecule computation reqeusts from channel `rx_inp`
+    pub async fn serve_channel(&self, rx_inp: &mut RxInput) -> Result<()> {
+        loop {
+            // FIXME: write output using tx_out
+            let (mol, tx_out) = rx_inp.recv().await.ok_or(format_err!("mol channel dropped"))?;
+            let computed = match self.accept().await? {
+                IpiStream::Tcp(mut s) => {
+                    let (read, write) = s.split();
+                    process_client_stream(&mol, read, write).await?
+                }
+                IpiStream::Unix(mut s) => {
+                    let (read, write) = s.split();
+                    process_client_stream(&mol, read, write).await?
+                }
+            };
+
+            match tx_out.send(computed) {
+                Ok(_) => {}
+                Err(_) => {}
+            }
         }
+        Ok(())
     }
 }
 // 77afd524 ends here

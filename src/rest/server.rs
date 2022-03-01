@@ -5,18 +5,28 @@ use axum::Json;
 use std::net::SocketAddr;
 // 3d2c01c2 ends here
 
-// [[file:../../ipi.note::*base][base:1]]
-pub struct Server;
-// base:1 ends here
+// [[file:../../ipi.note::ad35d99c][ad35d99c]]
+// type State = std::sync::Arc<TaskSender>;
+type State = TaskSender;
+// ad35d99c ends here
 
 // [[file:../../ipi.note::7157f9ad][7157f9ad]]
+use axum::extract::Extension;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
-async fn compute_mol(Json(mol): Json<Molecule>) -> impl IntoResponse {
-    // FIXME: error handling
-    let mp = Server::compute_mol_using_ipi(mol);
-    (StatusCode::OK, Json(mp))
+async fn compute_mol(Json(mol): Json<Molecule>, client: Extension<State>) -> impl IntoResponse {
+    match client.request_compute_molecule(mol).await {
+        Ok(computed) => {
+            // let mp = Server::compute_mol_using_ipi(mol);
+            // (StatusCode::OK, Json(mp))
+            todo!();
+        }
+        Err(err) => {
+            dbg!(err);
+            todo!();
+        }
+    }
 }
 // 7157f9ad ends here
 
@@ -24,8 +34,12 @@ async fn compute_mol(Json(mol): Json<Molecule>) -> impl IntoResponse {
 macro_rules! build_app_with_routes {
     () => {{
         use axum::routing::post;
+        use axum::AddExtensionLayer;
 
-        axum::Router::new().route("/mol", post(compute_mol))
+        let state = State::default();
+        axum::Router::new()
+            .route("/mol", post(compute_mol))
+            .layer(AddExtensionLayer::new(state))
     }};
 }
 // 59c3364a ends here
