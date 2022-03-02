@@ -18,7 +18,7 @@ pub use client::Client;
 impl Client {
     /// Request remote server compute `mol` using external code in i-PI protocol
     pub async fn compute_molecule(&self, mol: &Molecule) -> Result<ModelProperties> {
-        info!("computing molecule {}", mol.title());
+        info!("Request serve to compute molecule {}", mol.title());
         let x = self.post("mol", &mol).await?;
         let mol = serde_json::from_str(&x).with_context(|| format!("invalid json str: {x:?}"))?;
         Ok(mol)
@@ -30,21 +30,29 @@ impl Client {
 use socket::Socket;
 
 /// Server side for proxying i-PI computation requests to external code
-pub struct Server {
-    ipi_server: IpiListener,
-    task: Task,
-}
+pub struct Server;
 
 impl Server {
-    pub async fn new() -> Result<Self> {
-        // FIXME: using clap arguments
-        let ipi_server = Socket::bind("localhost", 12345, false).await?;
+    /// Wait for incoming task and forward computation to external code in i-PI protocol
+    async fn serve_incoming_task(mut task: TaskReceiver) {
+        // FIXME: remove unwrap
+        let mut ipi_server = Socket::bind("localhost", 12345, false).await.unwrap();
+        if let Err(err) = task.compute_molecule_with(&mut ipi_server).await {
+            error!("{err:?}");
+        }
+    }
 
-        let s = Self {
-            task: Task::new(),
-            ipi_server,
-        };
-        Ok(s)
+    /// Enter point for command line usage
+    pub async fn enter_main(lock_file: &Path) -> Result<()> {
+        let addr = socket::get_free_tcp_address().ok_or(format_err!("no free tcp addr"))?;
+        println!("listening on {addr:?}");
+        let _lock = LockFile::new(lock_file, addr);
+
+        let (task_rx, task_tx) = Task::new().split();
+        let h1 = tokio::spawn(async move { Self::run_restful(addr, task_tx).await });
+        let h2 = tokio::spawn(async move { Self::serve_incoming_task(task_rx).await });
+        tokio::try_join!(h1, h2)?;
+        Ok(())
     }
 }
 // 389c909a ends here

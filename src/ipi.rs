@@ -100,6 +100,8 @@ where
     R: AsyncRead + std::marker::Unpin,
     W: AsyncWrite + std::marker::Unpin,
 {
+    debug!("processing molecule {}", mol.title());
+
     // the message we received from the client code (VASP, SIESTA, ...)
     let mut client_read = FramedRead::new(read, codec::ClientCodec);
     // the message we sent to the client
@@ -159,9 +161,11 @@ use task::RxInput;
 impl IpiListener {
     /// Serve molecule computation reqeusts from channel `rx_inp`
     pub async fn serve_channel(&self, rx_inp: &mut RxInput) -> Result<()> {
+        info!("i-PI server started, and waiting for incoming molecules ...");
         loop {
             // FIXME: write output using tx_out
             let (mol, tx_out) = rx_inp.recv().await.ok_or(format_err!("mol channel dropped"))?;
+            debug!("received molecule {}, and wait for i-Pi client ...", mol.title());
             let computed = match self.accept().await? {
                 IpiStream::Tcp(mut s) => {
                     let (read, write) = s.split();

@@ -18,9 +18,10 @@ use axum::response::IntoResponse;
 async fn compute_mol(Json(mol): Json<Molecule>, client: Extension<State>) -> impl IntoResponse {
     match client.request_compute_molecule(mol).await {
         Ok(computed) => {
-            // let mp = Server::compute_mol_using_ipi(mol);
-            // (StatusCode::OK, Json(mp))
-            todo!();
+            let mut mp = ModelProperties::default();
+            mp.set_energy(computed.energy);
+            mp.set_forces(computed.forces);
+            (StatusCode::OK, Json(mp))
         }
         Err(err) => {
             dbg!(err);
@@ -32,14 +33,13 @@ async fn compute_mol(Json(mol): Json<Molecule>, client: Extension<State>) -> imp
 
 // [[file:../../ipi.note::59c3364a][59c3364a]]
 macro_rules! build_app_with_routes {
-    () => {{
+    ($state: expr) => {{
         use axum::routing::post;
         use axum::AddExtensionLayer;
 
-        let state = State::default();
         axum::Router::new()
             .route("/mol", post(compute_mol))
-            .layer(AddExtensionLayer::new(state))
+            .layer(AddExtensionLayer::new($state))
     }};
 }
 // 59c3364a ends here
@@ -70,19 +70,23 @@ async fn shutdown_signal() {
 
 // [[file:../../ipi.note::f4a1566d][f4a1566d]]
 impl Server {
-    pub async fn enter_main(lock_file: &Path) -> Result<()> {
-        let app = build_app_with_routes!();
+    /// Start restful service
+    ///
+    /// # Parameters
+    ///
+    /// * addr: socket address to bind
+    /// * state: shared state between route handlers
+    pub(super) async fn run_restful(addr: impl Into<SocketAddr>, state: State) {
+        let app = build_app_with_routes!(state);
+        let addr = addr.into();
 
-        // run it
-        let addr = socket::get_free_tcp_address().ok_or(format_err!("no free tcp addr"))?;
-        println!("listening on {addr:?}");
-        let _lock = LockFile::new(lock_file, addr);
-        axum::Server::bind(&addr)
+        if let Err(err) = axum::Server::bind(&addr)
             .serve(app.into_make_service())
             .with_graceful_shutdown(shutdown_signal())
-            .await?;
-
-        Ok(())
+            .await
+        {
+            error!("error in restful serivce: {err:?}");
+        }
     }
 }
 // f4a1566d ends here
