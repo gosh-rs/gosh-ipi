@@ -18,7 +18,7 @@ pub use client::Client;
 impl Client {
     /// Request remote server compute `mol` using external code in i-PI protocol
     pub async fn compute_molecule(&self, mol: &Molecule) -> Result<ModelProperties> {
-        info!("Request serve to compute molecule {}", mol.title());
+        info!("Request server to compute molecule {}", mol.title());
         let x = self.post("mol", &mol).await?;
         let mol = serde_json::from_str(&x).with_context(|| format!("invalid json str: {x:?}"))?;
         Ok(mol)
@@ -35,7 +35,7 @@ pub struct Server;
 impl Server {
     /// Wait for incoming task and forward computation to external code in i-PI protocol
     async fn serve_incoming_task(mut task: TaskReceiver) {
-        // FIXME: remove unwrap
+        // FIXME: remove unwrap, and allow custom port
         let mut ipi_server = Socket::bind("localhost", 12345, false).await.unwrap();
         if let Err(err) = task.compute_molecule_with(&mut ipi_server).await {
             error!("{err:?}");

@@ -45,7 +45,7 @@ impl ProxyClient {
         let client = rest::Client::connect(dbg!(addr.trim()));
         let mol = Molecule::from_file(&self.mol_file)?;
         let mp = client.compute_molecule(&mol).await?;
-        dbg!(mp);
+        println!("{mp}");
 
         Ok(())
     }
