@@ -94,49 +94,70 @@ where
 }
 // 7804b9ff ends here
 
-// [[file:../ipi.note::b85806b7][b85806b7]]
-async fn process_client_stream<R, W>(mol: &Molecule, read: R, write: W) -> Result<Computed>
-where
-    R: AsyncRead + std::marker::Unpin,
-    W: AsyncWrite + std::marker::Unpin,
-{
-    debug!("processing molecule {}", mol.title());
+// [[file:../ipi.note::32f96fbd][32f96fbd]]
+// wait until client ready to compute molecule
+macro_rules! process_client_stream {
+    ($stream: expr) => {{
+        let (read, write) = $stream.split();
+        // the message we received from the client code (VASP, SIESTA, ...)
+        let mut client_read = FramedRead::new(read, codec::ClientCodec);
+        // the message we sent to the client
+        let mut server_write = FramedWrite::new(write, codec::ServerCodec);
 
-    // the message we received from the client code (VASP, SIESTA, ...)
-    let mut client_read = FramedRead::new(read, codec::ClientCodec);
-    // the message we sent to the client
-    let mut server_write = FramedWrite::new(write, codec::ServerCodec);
-
-    loop {
-        // ask for client status
-        server_write.send(DriverMessage::Status).await?;
-        // read the message
-        if let Some(stream) = client_read.next().await {
-            let stream = stream?;
-            match stream {
-                // we are ready to send structure to compute
-                ClientMessage::Status(status) => match status {
-                    ClientStatus::Ready => {
-                        server_write.send(DriverMessage::PosData(mol.clone())).await?;
-                    }
-                    ClientStatus::NeedInit => {
-                        let init = InitData::new(0, "");
-                        server_write.send(DriverMessage::Init(init)).await?;
-                    }
-                    ClientStatus::HaveData => {
-                        server_write.send(DriverMessage::GetForce).await?;
-                    }
+        loop {
+            // ask for client status
+            server_write.send(DriverMessage::Status).await?;
+            // read the message, break if it is ready
+            if let Some(stream) = client_read.next().await {
+                match stream? {
+                    // we are ready to send structure to compute
+                    ClientMessage::Status(status) => match status {
+                        ClientStatus::NeedInit => {
+                            let init = InitData::new(0, "");
+                            server_write.send(DriverMessage::Init(init)).await?;
+                        }
+                        ClientStatus::Ready => {
+                            break;
+                        }
+                        _ => unimplemented!(),
+                    },
                     _ => unimplemented!(),
-                },
-                // the computation is done, and we got the results
-                ClientMessage::ForceReady(computed) => {
-                    return Ok(computed);
                 }
             }
         }
-    }
+    }};
 }
-// b85806b7 ends here
+
+// compute one molecule, and return computed properties
+macro_rules! process_client_stream_compute {
+    ($stream: expr, $mol: expr) => {{
+        let (read, write) = $stream.split();
+        // the message we received from the client code (VASP, SIESTA, ...)
+        let mut client_read = FramedRead::new(read, codec::ClientCodec);
+        // the message we sent to the client
+        let mut server_write = FramedWrite::new(write, codec::ServerCodec);
+
+        // client is ready, and we send the mol to compute
+        server_write.send(DriverMessage::PosData($mol)).await?;
+        server_write.send(DriverMessage::Status).await?;
+        let stream = client_read.next().await.ok_or(format_err!("client stream"))?;
+        match stream? {
+            ClientMessage::Status(status) => {
+                assert_eq!(status, ClientStatus::HaveData);
+            }
+            _ => unimplemented!(),
+        }
+        server_write.send(DriverMessage::GetForce).await?;
+        let stream = client_read.next().await.ok_or(format_err!("client stream"))?;
+        match stream? {
+            ClientMessage::ForceReady(computed) => {
+                return Ok(computed);
+            }
+            _ => unimplemented!(),
+        }
+    }};
+}
+// 32f96fbd ends here
 
 // [[file:../ipi.note::ac221478][ac221478]]
 pub async fn ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, stream: IpiStream) -> Result<()> {
@@ -155,28 +176,49 @@ pub async fn ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, stream: IpiSt
 }
 // ac221478 ends here
 
-// [[file:../ipi.note::77afd524][77afd524]]
+// [[file:../ipi.note::680b1817][680b1817]]
 use task::RxInput;
+
+impl IpiStream {
+    async fn wait_until_ready(&mut self) -> Result<()> {
+        match self {
+            IpiStream::Tcp(s) => {
+                process_client_stream!(s);
+            }
+            IpiStream::Unix(s) => {
+                process_client_stream!(s);
+            }
+        };
+
+        Ok(())
+    }
+
+    async fn compute_one(&mut self, mol: Molecule) -> Result<Computed> {
+        let computed = match self {
+            IpiStream::Tcp(s) => {
+                process_client_stream_compute!(s, mol);
+            }
+            IpiStream::Unix(s) => {
+                process_client_stream_compute!(s, mol);
+            }
+        };
+        Ok(computed)
+    }
+}
 
 impl IpiListener {
     /// Serve molecule computation reqeusts from channel `rx_inp`
     pub async fn serve_channel(&self, rx_inp: &mut RxInput) -> Result<()> {
-        info!("i-PI server started, and waiting for incoming molecules ...");
-        loop {
-            // FIXME: write output using tx_out
-            let (mol, tx_out) = rx_inp.recv().await.ok_or(format_err!("mol channel dropped"))?;
-            debug!("received molecule {}, and wait for i-Pi client ...", mol.title());
-            let computed = match self.accept().await? {
-                IpiStream::Tcp(mut s) => {
-                    let (read, write) = s.split();
-                    process_client_stream(&mol, read, write).await?
-                }
-                IpiStream::Unix(mut s) => {
-                    let (read, write) = s.split();
-                    process_client_stream(&mol, read, write).await?
-                }
-            };
+        info!("i-PI server: wait for external code connection and incoming molecule to compute ...");
+        let mut client_stream = self.accept().await?;
+        client_stream.wait_until_ready().await?;
+        debug!("client is ready now ...");
 
+        loop {
+            debug!("wait for new molecule to compute ...");
+            let (mol, tx_out) = rx_inp.recv().await.ok_or(format_err!("mol channel dropped"))?;
+            debug!("ask client to compute molecule {}", mol.title());
+            let computed = client_stream.compute_one(mol).await?;
             match tx_out.send(computed) {
                 Ok(_) => {}
                 Err(_) => {}
@@ -185,4 +227,4 @@ impl IpiListener {
         Ok(())
     }
 }
-// 77afd524 ends here
+// 680b1817 ends here

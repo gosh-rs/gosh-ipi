@@ -1,7 +1,7 @@
 # [[file:ipi.note::fe91b07f][fe91b07f]]
 [package]
 name = "gosh-ipi"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 authors = ["Wenping Guo <ybyygu@gmail.com>"]
 

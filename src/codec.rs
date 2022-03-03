@@ -331,6 +331,7 @@ fn decode_client_computed(src: &mut BytesMut) -> Result<Computed, DecodeError> {
     for i in 0..9 {
         virial[i] = src.get_f64_le() * Hartree;
     }
+    // extra field JSON string
     let nextra = src.get_u32_le();
     let bytes = src.copy_to_bytes(nextra as usize);
     let extra = try_to_string(&bytes).map_err(|e| into_decode_error(e))?;
