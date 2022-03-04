@@ -30,6 +30,66 @@ impl Computed {
 }
 // d4f83f32 ends here
 
+// [[file:../ipi.note::104ce11f][104ce11f]]
+/// The communication between the i-PI client and server.
+struct IpiServerStream<R, W> {
+    read: FramedRead<R, codec::ClientCodec>,
+    write: FramedWrite<W, codec::ServerCodec>,
+}
+
+impl<R: AsyncRead + std::marker::Unpin, W: AsyncWrite + std::marker::Unpin> IpiServerStream<R, W> {
+    fn new(read: R, write: W) -> Self {
+        // the message we received from the client code (VASP, SIESTA, ...)
+        let mut read = FramedRead::new(read, codec::ClientCodec);
+        // the message we sent to the client
+        let mut write = FramedWrite::new(write, codec::ServerCodec);
+
+        Self { read, write }
+    }
+
+    /// Ask and return client status
+    async fn get_status(&mut self) -> Result<ClientStatus> {
+        self.write.send(ServerMessage::Status).await?;
+        let stream = self.read.next().await.ok_or(format_err!("client stream"))?;
+        match stream? {
+            ClientMessage::Status(status) => Ok(status),
+            x => bail!("Inconsistent client state: {x:?}"),
+        }
+    }
+
+    /// Send an exit message to client to let them exit gracefully.
+    async fn set_exit(&mut self) -> Result<()> {
+        self.write.send(ServerMessage::Exit).await?;
+        Ok(())
+    }
+
+    /// Get computed results (potential energy, force and virial) from the
+    /// client
+    async fn get_computed(&mut self) -> Result<Computed> {
+        self.write.send(ServerMessage::GetForce).await?;
+        let stream = self.read.next().await.ok_or(format_err!("client stream"))?;
+        match stream? {
+            ClientMessage::ForceReady(computed) => Ok(computed),
+            _ => bail!("Inconsistent client state"),
+        }
+    }
+
+    /// Send input data (the position and cell data) to the client.
+    async fn set_input(&mut self, mol: Molecule) -> Result<()> {
+        self.write.send(ServerMessage::PosData(mol)).await?;
+        Ok(())
+    }
+
+    /// Send the init string to the client.
+    // FIXME: handle the json part
+    async fn set_init(&mut self) -> Result<()> {
+        let init = InitData::new(0, "");
+        self.write.send(ServerMessage::Init(init)).await?;
+        Ok(())
+    }
+}
+// 104ce11f ends here
+
 // [[file:../ipi.note::7804b9ff][7804b9ff]]
 async fn ipi_client_loop<R, W>(mut bbm: BlackBoxModel, mol_ini: Molecule, read: R, write: W) -> Result<()>
 where
@@ -99,30 +159,19 @@ where
 macro_rules! process_client_stream {
     ($stream: expr) => {{
         let (read, write) = $stream.split();
-        // the message we received from the client code (VASP, SIESTA, ...)
-        let mut client_read = FramedRead::new(read, codec::ClientCodec);
-        // the message we sent to the client
-        let mut server_write = FramedWrite::new(write, codec::ServerCodec);
+        let mut stream = IpiServerStream::new(read, write);
 
         loop {
             // ask for client status
-            server_write.send(ServerMessage::Status).await?;
-            // read the message, break if it is ready
-            if let Some(stream) = client_read.next().await {
-                match stream? {
-                    // we are ready to send structure to compute
-                    ClientMessage::Status(status) => match status {
-                        ClientStatus::NeedInit => {
-                            let init = InitData::new(0, "");
-                            server_write.send(ServerMessage::Init(init)).await?;
-                        }
-                        ClientStatus::Ready => {
-                            break;
-                        }
-                        _ => unimplemented!(),
-                    },
-                    _ => unimplemented!(),
+            let status = stream.get_status().await?;
+            match status {
+                ClientStatus::NeedInit => {
+                    stream.set_init().await?;
                 }
+                ClientStatus::Ready => {
+                    break;
+                }
+                _ => unimplemented!(),
             }
         }
     }};
@@ -132,29 +181,15 @@ macro_rules! process_client_stream {
 macro_rules! process_client_stream_compute {
     ($stream: expr, $mol: expr) => {{
         let (read, write) = $stream.split();
-        // the message we received from the client code (VASP, SIESTA, ...)
-        let mut client_read = FramedRead::new(read, codec::ClientCodec);
-        // the message we sent to the client
-        let mut server_write = FramedWrite::new(write, codec::ServerCodec);
+        let mut stream = IpiServerStream::new(read, write);
 
         // client is ready, and we send the mol to compute
-        server_write.send(ServerMessage::PosData($mol)).await?;
-        server_write.send(ServerMessage::Status).await?;
-        let stream = client_read.next().await.ok_or(format_err!("client stream"))?;
-        match stream? {
-            ClientMessage::Status(status) => {
-                assert_eq!(status, ClientStatus::HaveData);
-            }
-            _ => unimplemented!(),
-        }
-        server_write.send(ServerMessage::GetForce).await?;
-        let stream = client_read.next().await.ok_or(format_err!("client stream"))?;
-        match stream? {
-            ClientMessage::ForceReady(computed) => {
-                return Ok(computed);
-            }
-            _ => unimplemented!(),
-        }
+        stream.set_input($mol).await?;
+        let status = stream.get_status().await?;
+        assert_eq!(status, ClientStatus::HaveData);
+
+        let computed = stream.get_computed().await?;
+        return Ok(computed);
     }};
 }
 // 32f96fbd ends here
