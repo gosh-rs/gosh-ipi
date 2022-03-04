@@ -2,33 +2,14 @@
 use super::*;
 use socket::*;
 
-use gosh_model::*;
-use std::path::{Path, PathBuf};
-
 use futures::SinkExt;
 use futures::StreamExt;
+use std::path::{Path, PathBuf};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpStream, UnixStream};
 use tokio_util::codec::Decoder;
 use tokio_util::codec::{FramedRead, FramedWrite};
 // ac2d8efb ends here
-
-// [[file:../ipi.note::d4f83f32][d4f83f32]]
-impl Computed {
-    fn from_model_properties(mp: &ModelProperties) -> Self {
-        let energy = dbg!(mp.get_energy().unwrap());
-        let forces = mp.get_forces().unwrap().clone();
-        Self {
-            energy,
-            forces,
-            // TODO: we have no support for stress tensor, so set virial as
-            // zeros
-            virial: [0.0; 9],
-            extra: "".into(),
-        }
-    }
-}
-// d4f83f32 ends here
 
 // [[file:../ipi.note::104ce11f][104ce11f]]
 /// The communication between the i-PI client and server.
@@ -97,70 +78,6 @@ where
     }
 }
 // 104ce11f ends here
-
-// [[file:../ipi.note::7804b9ff][7804b9ff]]
-async fn ipi_client_loop<R, W>(mut bbm: BlackBoxModel, mol_ini: Molecule, read: R, write: W) -> Result<()>
-where
-    R: AsyncRead + std::marker::Unpin,
-    W: AsyncWrite + std::marker::Unpin,
-{
-    // for the message we received from the server (the driver)
-    let mut server_read = FramedRead::new(read, codec::ServerCodec);
-    // for the message we sent to the server (the driver)
-    let mut client_write = FramedWrite::new(write, codec::ClientCodec);
-
-    let mut mol_to_compute: Option<Molecule> = None;
-    let mut f_init = false;
-    // NOTE: There is no async for loop for stream in current version of Rust,
-    // so we use while loop instead
-    while let Some(stream) = server_read.next().await {
-        let mut stream = stream?;
-        match stream {
-            ServerMessage::Status => {
-                debug!("server ask for client status");
-                if !f_init {
-                    client_write.send(ClientMessage::Status(ClientStatus::NeedInit)).await?;
-                } else if mol_to_compute.is_some() {
-                    client_write.send(ClientMessage::Status(ClientStatus::HaveData)).await?;
-                } else {
-                    client_write.send(ClientMessage::Status(ClientStatus::Ready)).await?;
-                }
-            }
-            // initialization
-            ServerMessage::Init(data) => {
-                // FIXME: initialize data
-                debug!("server sent init data: {:?}", data);
-                f_init = true;
-            }
-            // receives structural information
-            ServerMessage::PosData(mol) => {
-                debug!("server sent mol {:?}", mol);
-                mol_to_compute = Some(mol);
-            }
-            ServerMessage::GetForce => {
-                debug!("server asks for forces");
-                if let Some(mol) = mol_to_compute.as_mut() {
-                    assert_eq!(mol.natoms(), mol_ini.natoms());
-                    // NOTE: reset element symbols from mol_ini
-                    mol.set_symbols(mol_ini.symbols());
-                    let mp = bbm.compute(&mol)?;
-                    let computed = Computed::from_model_properties(&mp);
-                    client_write.send(ClientMessage::ForceReady(computed)).await?;
-                    mol_to_compute = None;
-                } else {
-                    bail!("not mol to compute!");
-                }
-            }
-            ServerMessage::Exit => {
-                debug!("Received exit message from the server. Bye bye!");
-                break;
-            }
-        }
-    }
-
-    Ok(())
-}
-// 7804b9ff ends here
 
 // [[file:../ipi.note::32f96fbd][32f96fbd]]
 // wait until client ready to compute molecule
