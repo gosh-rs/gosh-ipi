@@ -48,7 +48,7 @@ where
     while let Some(stream) = server_read.next().await {
         let mut stream = stream?;
         match stream {
-            DriverMessage::Status => {
+            ServerMessage::Status => {
                 debug!("server ask for client status");
                 if !f_init {
                     client_write.send(ClientMessage::Status(ClientStatus::NeedInit)).await?;
@@ -59,17 +59,17 @@ where
                 }
             }
             // initialization
-            DriverMessage::Init(data) => {
+            ServerMessage::Init(data) => {
                 // FIXME: initialize data
                 debug!("server sent init data: {:?}", data);
                 f_init = true;
             }
             // receives structural information
-            DriverMessage::PosData(mol) => {
+            ServerMessage::PosData(mol) => {
                 debug!("server sent mol {:?}", mol);
                 mol_to_compute = Some(mol);
             }
-            DriverMessage::GetForce => {
+            ServerMessage::GetForce => {
                 debug!("server asks for forces");
                 if let Some(mol) = mol_to_compute.as_mut() {
                     assert_eq!(mol.natoms(), mol_ini.natoms());
@@ -83,7 +83,7 @@ where
                     bail!("not mol to compute!");
                 }
             }
-            DriverMessage::Exit => {
+            ServerMessage::Exit => {
                 debug!("Received exit message from the server. Bye bye!");
                 break;
             }
@@ -106,7 +106,7 @@ macro_rules! process_client_stream {
 
         loop {
             // ask for client status
-            server_write.send(DriverMessage::Status).await?;
+            server_write.send(ServerMessage::Status).await?;
             // read the message, break if it is ready
             if let Some(stream) = client_read.next().await {
                 match stream? {
@@ -114,7 +114,7 @@ macro_rules! process_client_stream {
                     ClientMessage::Status(status) => match status {
                         ClientStatus::NeedInit => {
                             let init = InitData::new(0, "");
-                            server_write.send(DriverMessage::Init(init)).await?;
+                            server_write.send(ServerMessage::Init(init)).await?;
                         }
                         ClientStatus::Ready => {
                             break;
@@ -138,9 +138,8 @@ macro_rules! process_client_stream_compute {
         let mut server_write = FramedWrite::new(write, codec::ServerCodec);
 
         // client is ready, and we send the mol to compute
-        server_write.send(DriverMessage::PosData($mol)).await?;
-        // let status = get_client_status(&mut client_read, &mut server_write)?;
-        server_write.send(DriverMessage::Status).await?;
+        server_write.send(ServerMessage::PosData($mol)).await?;
+        server_write.send(ServerMessage::Status).await?;
         let stream = client_read.next().await.ok_or(format_err!("client stream"))?;
         match stream? {
             ClientMessage::Status(status) => {
@@ -148,7 +147,7 @@ macro_rules! process_client_stream_compute {
             }
             _ => unimplemented!(),
         }
-        server_write.send(DriverMessage::GetForce).await?;
+        server_write.send(ServerMessage::GetForce).await?;
         let stream = client_read.next().await.ok_or(format_err!("client stream"))?;
         match stream? {
             ClientMessage::ForceReady(computed) => {

@@ -82,9 +82,9 @@ pub enum ClientStatus {
     TimeOut,
 }
 
-/// The message sent from the driver code (i-PI ...)
+/// The message sent from the server side (i-PI)
 #[derive(Debug, Clone)]
-pub enum DriverMessage {
+pub enum ServerMessage {
     /// Request the status of the client code
     Status,
 
