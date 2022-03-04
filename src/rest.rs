@@ -16,6 +16,7 @@ mod server;
 pub use client::Client;
 
 impl Client {
+    #[tokio::main]
     /// Request remote server compute `mol` using external code in i-PI protocol
     pub async fn compute_molecule(&self, mol: &Molecule) -> Result<ModelProperties> {
         info!("Request server to compute molecule {}", mol.title());
@@ -42,6 +43,7 @@ impl Server {
         }
     }
 
+    #[tokio::main]
     /// Enter point for command line usage
     pub async fn enter_main(lock_file: &Path) -> Result<()> {
         let addr = socket::get_free_tcp_address().ok_or(format_err!("no free tcp addr"))?;

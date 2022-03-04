@@ -32,12 +32,20 @@ impl Computed {
 
 // [[file:../ipi.note::104ce11f][104ce11f]]
 /// The communication between the i-PI client and server.
-struct IpiServerStream<R, W> {
+struct IpiServerStream<R, W>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
     read: FramedRead<R, codec::ClientCodec>,
     write: FramedWrite<W, codec::ServerCodec>,
 }
 
-impl<R: AsyncRead + std::marker::Unpin, W: AsyncWrite + std::marker::Unpin> IpiServerStream<R, W> {
+impl<R, W> IpiServerStream<R, W>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
     fn new(read: R, write: W) -> Self {
         // the message we received from the client code (VASP, SIESTA, ...)
         let mut read = FramedRead::new(read, codec::ClientCodec);
@@ -194,23 +202,6 @@ macro_rules! process_client_stream_compute {
 }
 // 32f96fbd ends here
 
-// [[file:../ipi.note::ac221478][ac221478]]
-pub async fn ipi_client(mut bbm: BlackBoxModel, mol_ini: Molecule, stream: IpiStream) -> Result<()> {
-    match stream {
-        IpiStream::Tcp(mut s) => {
-            let (read, write) = s.split();
-            ipi_client_loop(bbm, mol_ini, read, write).await?;
-        }
-        IpiStream::Unix(mut s) => {
-            let (read, write) = s.split();
-            ipi_client_loop(bbm, mol_ini, read, write).await?;
-        }
-    };
-
-    Ok(())
-}
-// ac221478 ends here
-
 // [[file:../ipi.note::680b1817][680b1817]]
 use task::RxInput;
 
@@ -251,15 +242,43 @@ impl IpiListener {
 
         loop {
             debug!("wait for new molecule to compute ...");
-            let (mol, tx_out) = rx_inp.recv().await.ok_or(format_err!("mol channel dropped"))?;
-            debug!("ask client to compute molecule {}", mol.title());
-            let computed = client_stream.compute_one(mol).await?;
-            match tx_out.send(computed) {
-                Ok(_) => {}
-                Err(_) => {}
+            if let Some((mol, tx_out)) = rx_inp.recv().await {
+                debug!("ask client to compute molecule {}", mol.title());
+                let computed = client_stream.compute_one(mol).await?;
+                match tx_out.send(computed) {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+            } else {
+                client_stream.shutdown().await;
+                break;
             }
         }
+
         Ok(())
     }
 }
 // 680b1817 ends here
+
+// [[file:../ipi.note::1b623d31][1b623d31]]
+macro_rules! process_client_stream_exit {
+    ($stream: expr) => {{
+        let (read, write) = $stream.split();
+        let _ = IpiServerStream::new(read, write).set_exit().await;
+    }};
+}
+
+impl IpiStream {
+    async fn shutdown(&mut self) {
+        info!("sent exit message to client");
+        match self {
+            IpiStream::Tcp(s) => {
+                process_client_stream_exit!(s);
+            }
+            IpiStream::Unix(s) => {
+                process_client_stream_exit!(s);
+            }
+        };
+    }
+}
+// 1b623d31 ends here

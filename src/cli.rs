@@ -40,12 +40,12 @@ struct ProxyClient {
 }
 
 impl ProxyClient {
-    async fn enter_main(&self) -> Result<()> {
+    fn enter_main(&self) -> Result<()> {
         wait_file(&self.lock_file, 2.0)?;
         let addr = gut::fs::read_file(&self.lock_file)?;
         let client = rest::Client::connect(addr.trim());
         let mol = Molecule::from_file(&self.mol_file)?;
-        let mp = client.compute_molecule(&mol).await?;
+        let mp = client.compute_molecule(&mol)?;
         println!("{mp}");
 
         Ok(())
@@ -62,8 +62,8 @@ struct ProxyServer {
 }
 
 impl ProxyServer {
-    async fn enter_main(&self) -> Result<()> {
-        rest::Server::enter_main(&self.lock_file).await?;
+    fn enter_main(&self) -> Result<()> {
+        rest::Server::enter_main(&self.lock_file)?;
         Ok(())
     }
 }
@@ -91,14 +91,13 @@ pub struct IpiProxyCli {
 }
 
 impl IpiProxyCli {
-    #[tokio::main]
-    pub async fn enter_main() -> Result<()> {
+    pub fn enter_main() -> Result<()> {
         let args = Self::from_args();
         args.verbose.setup_logger();
 
         match args.cmd {
-            ProxyCmd::Client(client) => client.enter_main().await?,
-            ProxyCmd::Server(server) => server.enter_main().await?,
+            ProxyCmd::Client(client) => client.enter_main()?,
+            ProxyCmd::Server(server) => server.enter_main()?,
         }
 
         Ok(())
