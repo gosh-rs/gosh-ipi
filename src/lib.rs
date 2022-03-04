@@ -137,6 +137,31 @@ pub struct Computed {
 }
 // 04b72e76 ends here
 
+// [[file:../ipi.note::eafb80c0][eafb80c0]]
+/// Wait until file `f` available until `timeout`.
+///
+/// # Parameters
+///
+/// * timeout: timeout in seconds
+/// * f: the file to wait for available
+pub fn wait_file(f: &std::path::Path, timeout: f64) -> Result<()> {
+    let interval = 0.1;
+    let mut t = 0.0;
+    loop {
+        if f.exists() {
+            debug!("Elapsed time during waiting: {:.2} seconds ", t);
+            return Ok(());
+        }
+        t += interval;
+        gut::utils::sleep(interval);
+
+        if t > timeout {
+            bail!("file {:?} doest exist for {} seconds", f, timeout);
+        }
+    }
+}
+// eafb80c0 ends here
+
 // [[file:../ipi.note::242ad86a][242ad86a]]
 #[cfg(feature = "adhoc")]
 /// Docs for local mods

@@ -139,6 +139,7 @@ macro_rules! process_client_stream_compute {
 
         // client is ready, and we send the mol to compute
         server_write.send(DriverMessage::PosData($mol)).await?;
+        // let status = get_client_status(&mut client_read, &mut server_write)?;
         server_write.send(DriverMessage::Status).await?;
         let stream = client_read.next().await.ok_or(format_err!("client stream"))?;
         match stream? {
