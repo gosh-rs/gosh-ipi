@@ -11,8 +11,8 @@ tokio-util = { version = "0.7", features = ["codec"] }
 bytes = "1"
 futures = "0.3"
 #===========
-gosh-core = { version = ">=0.0.3", features=["adhoc"] }
-gosh-model = { version = ">=0.0.14", features=["adhoc"] }
+gosh-core = { version = "0.0.3", features=["adhoc"] }
+gosh-model = { version = "0.1", features=["adhoc"] }
 #===========
 clap = {version="3", features = ["derive"]}
 fs2 = "0.4.3"

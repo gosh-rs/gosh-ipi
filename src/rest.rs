@@ -38,7 +38,8 @@ impl Server {
     async fn serve_incoming_task(mut task: TaskReceiver) {
         // FIXME: remove unwrap, and allow custom port
         let mut ipi_server = Socket::bind("localhost", 12345, false).await.unwrap();
-        if let Err(err) = task.compute_molecule_with(&mut ipi_server).await {
+        // if let Err(err) = task.compute_molecule_with(&mut ipi_server).await {
+        if let Err(err) = ipi_server.serve_channel(&mut task).await {
             error!("{err:?}");
         }
     }

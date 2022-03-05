@@ -1,6 +1,5 @@
 // [[file:../ipi.note::475dbc7d][475dbc7d]]
 use super::*;
-use socket::IpiListener;
 
 use tokio::sync::{mpsc, oneshot};
 // 475dbc7d ends here
@@ -37,9 +36,9 @@ pub struct TaskReceiver {
 }
 
 impl TaskReceiver {
-    pub async fn compute_molecule_with(&mut self, ipi_server: &mut IpiListener) -> Result<()> {
-        ipi_server.serve_channel(&mut self.rx_inp).await?;
-        Ok(())
+    /// Receives the next task for this receiver.
+    pub async fn recv(&mut self) -> Option<IpiJob> {
+        self.rx_inp.recv().await
     }
 }
 

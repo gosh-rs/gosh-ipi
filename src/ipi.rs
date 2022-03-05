@@ -120,7 +120,7 @@ macro_rules! process_client_stream_compute {
 // 32f96fbd ends here
 
 // [[file:../ipi.note::680b1817][680b1817]]
-use task::RxInput;
+use task::TaskReceiver;
 
 impl IpiStream {
     async fn wait_until_ready(&mut self) -> Result<()> {
@@ -150,8 +150,8 @@ impl IpiStream {
 }
 
 impl IpiListener {
-    /// Serve molecule computation reqeusts from channel `rx_inp`
-    pub async fn serve_channel(&self, rx_inp: &mut RxInput) -> Result<()> {
+    /// Serve molecule computation reqeusts from `task`
+    pub async fn serve_channel(&self, task: &mut TaskReceiver) -> Result<()> {
         info!("i-PI server: wait for external code connection and incoming molecule to compute ...");
         let mut client_stream = self.accept().await?;
         client_stream.wait_until_ready().await?;
@@ -159,7 +159,7 @@ impl IpiListener {
 
         loop {
             debug!("wait for new molecule to compute ...");
-            if let Some((mol, tx_out)) = rx_inp.recv().await {
+            if let Some((mol, tx_out)) = task.recv().await {
                 debug!("ask client to compute molecule {}", mol.title());
                 let computed = client_stream.compute_one(mol).await?;
                 match tx_out.send(computed) {
@@ -167,6 +167,7 @@ impl IpiListener {
                     Err(_) => {}
                 }
             } else {
+                // task channel closed for some reason
                 client_stream.shutdown().await;
                 break;
             }

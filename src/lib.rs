@@ -128,6 +128,7 @@ impl InitData {
     }
 }
 
+/// Represents i-PI client computed results
 #[derive(Debug, Clone)]
 pub struct Computed {
     energy: f64,
