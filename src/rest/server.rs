@@ -16,7 +16,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
 async fn compute_mol(Json(mol): Json<Molecule>, client: Extension<State>) -> impl IntoResponse {
-    match client.request_compute_molecule(mol).await {
+    match client.remote_compute(mol).await {
         Ok(computed) => {
             let mut mp = ModelProperties::default();
             mp.set_energy(computed.energy);
