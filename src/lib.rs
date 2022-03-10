@@ -4,6 +4,10 @@ use gut::prelude::*;
 
 use gchemol::prelude::*;
 use gchemol::{Atom, Lattice, Molecule};
+
+use gosh_remote::LockFile;
+
+use std::path::{Path, PathBuf};
 // 45bd773d ends here
 
 // [[file:../ipi.note::2783ec3a][2783ec3a]]
@@ -11,58 +15,10 @@ mod codec;
 mod ipi;
 mod socket;
 
+pub mod cli;
 mod rest;
 mod task;
 // 2783ec3a ends here
-
-// [[file:../ipi.note::929936e0][929936e0]]
-use std::path::{Path, PathBuf};
-
-#[derive(Debug)]
-pub struct LockFile {
-    file: std::fs::File,
-    path: PathBuf,
-}
-
-impl LockFile {
-    fn create(path: &Path) -> Result<LockFile> {
-        use fs2::*;
-
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(&path)
-            .context("Could not create ID file")?;
-
-        // https://docs.rs/fs2/0.4.3/fs2/trait.FileExt.html
-        file.try_lock_exclusive()
-            .context("Could not lock ID file; Is the daemon already running?")?;
-
-        Ok(LockFile {
-            file,
-            path: path.to_owned(),
-        })
-    }
-
-    fn write_msg(&mut self, msg: impl std::fmt::Display) -> Result<()> {
-        writeln!(&mut self.file, "{msg}").context("Could not write ID file")?;
-        self.file.flush().context("Could not flush ID file")
-    }
-
-    /// Create a lockfile in `path` containing `msg`
-    pub fn new(path: &Path, msg: impl std::fmt::Display) -> Result<Self> {
-        let mut lockfile = Self::create(path)?;
-        lockfile.write_msg(msg)?;
-        Ok(lockfile)
-    }
-}
-
-impl Drop for LockFile {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
-    }
-}
-// 929936e0 ends here
 
 // [[file:../ipi.note::04b72e76][04b72e76]]
 /// The status of the client
@@ -138,31 +94,6 @@ pub struct Computed {
 }
 // 04b72e76 ends here
 
-// [[file:../ipi.note::eafb80c0][eafb80c0]]
-/// Wait until file `f` available until `timeout`.
-///
-/// # Parameters
-///
-/// * timeout: timeout in seconds
-/// * f: the file to wait for available
-pub fn wait_file(f: &std::path::Path, timeout: f64) -> Result<()> {
-    let interval = 0.1;
-    let mut t = 0.0;
-    loop {
-        if f.exists() {
-            debug!("Elapsed time during waiting: {:.2} seconds ", t);
-            return Ok(());
-        }
-        t += interval;
-        gut::utils::sleep(interval);
-
-        if t > timeout {
-            bail!("file {:?} doest exist for {} seconds", f, timeout);
-        }
-    }
-}
-// eafb80c0 ends here
-
 // [[file:../ipi.note::242ad86a][242ad86a]]
 #[cfg(feature = "adhoc")]
 /// Docs for local mods
@@ -182,7 +113,3 @@ pub mod docs {
     export_doc!(task);
 }
 // 242ad86a ends here
-
-// [[file:../ipi.note::45e64f3f][45e64f3f]]
-pub mod cli;
-// 45e64f3f ends here

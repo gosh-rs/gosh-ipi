@@ -41,7 +41,7 @@ struct ProxyClient {
 
 impl ProxyClient {
     fn enter_main(&self) -> Result<()> {
-        wait_file(&self.lock_file, 2.0)?;
+        LockFile::wait(&self.lock_file, 2.0)?;
         let addr = gut::fs::read_file(&self.lock_file)?;
         let client = rest::Client::connect(addr.trim());
         let mol = Molecule::from_file(&self.mol_file)?;
